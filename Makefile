@@ -14,6 +14,7 @@ config.h:
 
 .c.o:
 	$(CC) $(STCFLAGS) -c $<
+	echo $(STCFLAGS) | sed -e 's/\ /\n/g' | grep -e "-[ID]" > compile_flags.txt
 
 st.o: config.h st.h win.h
 x.o: arg.h config.h st.h win.h
