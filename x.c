@@ -1140,6 +1140,23 @@ xicdestroy(XIC xim, XPointer client, XPointer call)
 	return 1;
 }
 
+static void
+grabfocus(void)
+{
+	struct timespec ts = { .tv_sec = 0, .tv_nsec = 10000000  };
+	Window focuswin;
+	int i, revertwin;
+
+	for (i = 0; i < 100; ++i) {
+		XGetInputFocus(xw.dpy, &focuswin, &revertwin);
+		if (focuswin == xw.win)
+			return;
+		XSetInputFocus(xw.dpy, xw.win, RevertToParent, CurrentTime);
+		nanosleep(&ts, NULL);
+	}
+	die("cannot grab focus");
+}
+
 void
 xinit(int cols, int rows)
 {
@@ -1150,6 +1167,7 @@ xinit(int cols, int rows)
 	XColor xmousefg, xmousebg;
 	XWindowAttributes attr;
 	XVisualInfo vis;
+	int embed = 0;
 
 	if (!(xw.dpy = XOpenDisplay(NULL)))
 		die("can't open display\n");
@@ -1158,9 +1176,11 @@ xinit(int cols, int rows)
 	if (!(opt_embed && (parent = strtol(opt_embed, NULL, 0)))) {
 		parent = XRootWindow(xw.dpy, xw.scr);
 		xw.depth = 32;
+		embed = 0;
 	} else {
 		XGetWindowAttributes(xw.dpy, parent, &attr);
 		xw.depth = attr.depth;
+		embed = 1;
 	}
 
 	XMatchVisualInfo(xw.dpy, xw.scr, xw.depth, TrueColor, &vis);
@@ -1251,6 +1271,18 @@ xinit(int cols, int rows)
 	xhints();
 	XMapWindow(xw.dpy, xw.win);
 	XSync(xw.dpy, False);
+	if (embed) {
+		XReparentWindow(xw.dpy, xw.win, parent, xw.l, xw.t);
+		XSelectInput(xw.dpy, parent, FocusChangeMask | SubstructureNotifyMask);
+		Window* dws, dw, w;
+		unsigned du;
+		if (XQueryTree(xw.dpy, parent, &dw, &w, &dws, &du) && dws) {
+			for (int i = 0; i < du && dws[i] != xw.win; ++i)
+				XSelectInput(xw.dpy, dws[i], FocusChangeMask);
+			XFree(dws);
+		}
+		grabfocus();
+	}
 
 	clock_gettime(CLOCK_MONOTONIC, &xsel.tclick1);
 	clock_gettime(CLOCK_MONOTONIC, &xsel.tclick2);
