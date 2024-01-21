@@ -11,6 +11,7 @@
 #include <signal.h>
 #include <sys/ioctl.h>
 #include <sys/select.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <termios.h>
@@ -756,6 +757,9 @@ int
 ttynew(const char *line, char *cmd, const char *out, char **args)
 {
 	int m, s;
+	struct stat buf;
+	int input_pipe  = fstat(0, &buf) >=0 && S_ISFIFO(buf.st_mode);
+	int output_pipe = fstat(1, &buf) >=0 && S_ISFIFO(buf.st_mode);
 
 	if (out) {
 		term.mode |= MODE_PRINT;
@@ -785,11 +789,17 @@ ttynew(const char *line, char *cmd, const char *out, char **args)
 		die("fork failed: %s\n", strerror(errno));
 		break;
 	case 0:
-		close(iofd);
+		if (!output_pipe) {
+			close(iofd);
+		}
 		close(m);
 		setsid(); /* create a new process group */
-		dup2(s, 0);
-		dup2(s, 1);
+		if (!input_pipe) {
+			dup2(s, 0);
+		}
+		if (!output_pipe) {
+			dup2(s, 1);
+		}
 		dup2(s, 2);
 		if (ioctl(s, TIOCSCTTY, NULL) < 0)
 			die("ioctl TIOCSCTTY failed: %s\n", strerror(errno));
