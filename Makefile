@@ -44,9 +44,11 @@ install: st
 	chmod 644 $(DESTDIR)$(MANPREFIX)/man1/st.1
 	tic -sx st.info
 	@echo Please see the README file regarding the terminfo entry of st.
+	xdg-desktop-menu install ./suckless-st.desktop
 
 uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/bin/st
 	rm -f $(DESTDIR)$(MANPREFIX)/man1/st.1
+	xdg-desktop-menu uninstall suckless-st.desktop
 
 .PHONY: all clean dist install uninstall
